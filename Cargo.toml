@@ -1,0 +1,11 @@
+[package]
+name = "solar-data"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+openapi = { path = "./openapi" }
+thiserror = "1"
+tokio = { version = "1.0", features = [ "full" ] }
+reqwest = "0.11"
