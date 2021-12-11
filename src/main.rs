@@ -1,34 +1,57 @@
-use anyhow::anyhow;
+//! Basic tool for fetching data about solar energy system from Enlighten API
 use anyhow::Context;
 use openapi::{
     self,
     apis::configuration::{ApiKey, Configuration},
 };
 
+/// Describes the config for this tool
+#[derive(serde::Deserialize)]
+struct Config {
+    enlighten_key: String,
+    enlighten_user_id: String,
+}
+
+/// Wraps `anyhow::Error` in something implementing `std::error::Error`
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 struct AnyhowWrap(#[from] anyhow::Error);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Configuration {
-        base_path: String::from("https://api.enphaseenergy.com/api/v2"), // XXX
+    // TODO config should be runtime
+    let config: Config = toml::from_str(include_str!("../enphase_creds.toml"))
+        .context("parsing enphase_creds.toml")?;
+
+    let enlighten_config = Configuration {
+        base_path: String::from("https://api.enphaseenergy.com/api/v2"),
         user_agent: None,
         client: reqwest::Client::new(),
         basic_auth: None,
         oauth_access_token: None,
         bearer_access_token: None,
-        api_key: Some(ApiKey {
-            prefix: None,
-            key: String::from(env!("ENLIGHTEN_KEY")),
-        }),
+        api_key: Some(ApiKey { prefix: None, key: config.enlighten_key }),
     };
 
     use openapi::apis::default_api as enlighten;
-    let user_id = env!("ENLIGHTEN_USER_ID");
+    let user_id = &config.enlighten_user_id;
     let response = enlighten::systems(
-        &config, user_id, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
+        &enlighten_config,
+        user_id,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
     )
     .await
     .context("listing systems")?;
@@ -43,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!(
         "{:?}",
-        enlighten::stats(&config, user_id, system_id, None, None)
+        enlighten::stats(&enlighten_config, user_id, system_id, None, None)
             .await
             .context("getting stats")?
     );
