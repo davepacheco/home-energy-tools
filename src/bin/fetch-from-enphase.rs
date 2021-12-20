@@ -33,8 +33,9 @@ struct OutputRecord {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO config should be runtime
-    let config: Config = toml::from_str(include_str!("../enphase_creds.toml"))
-        .context("parsing enphase_creds.toml")?;
+    let config: Config =
+        toml::from_str(include_str!("../../enphase_creds.toml"))
+            .context("parsing enphase_creds.toml")?;
 
     let enlighten_config = Configuration {
         base_path: String::from("https://api.enphaseenergy.com/api/v2"),
@@ -87,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .date();
     let mut writer = csv::Writer::from_writer(std::io::stdout());
     while date < last_date {
+        eprintln!("{}: date: {}", chrono::Utc::now(), date);
         let next_date = date.succ();
         let stats = enlighten::stats(
             &enlighten_config,
@@ -116,6 +118,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writer.flush().context("flushing writer")?;
         date = next_date;
+
+        /*
+         * We only get 10 requests per minute.  Sleep 6 seconds between
+         * requests.  (TODO We could do better here by parsing the error
+         * responses.)
+         */
+        tokio::time::sleep(Duration::from_secs(6)).await;
     }
 
     writer.flush().context("flushing writer")?;
