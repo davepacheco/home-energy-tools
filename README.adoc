@@ -1,0 +1,29 @@
+:showtitle:
+:toc: left
+:icons: font
+
+= solar-data
+
+This repo contains a few tools to track and analyze solar panel production data from Enphase and energy usage data from PG&E.
+
+Collect the latest Enphase data using:
+
+[source,text]
+---
+cargo run --bin=fetch-from-enphase > data.csv
+---
+
+This fetches data from the Enphase Enlighten API.  We're doing this with a client generated using the OpenAPI-Generator from src/enlighten.yaml, itself an https://github.com/NathanBaulch/EnphaseOpenAPI/[unofficial OpenAPI spec for the Enlighten API].
+
+The data file contains a UTC timestamp (which isn't ideal, since we usually want to join this with PG&E data, which is in local time) and watt-hours produced.
+
+All of this uses configuration from "enphase_creds.toml" (not checked into git) which contains an Enlighten API key and user id.  Although it doesn't really make sense, there's also a "start_date" in this file.  The program will begin at the start date and fetch data up to the current date (yesterday, really).
+
+== TODO
+
+- add a tool to take the Enphase CSV and turn it into local time
+- add some tools to process the PG&E usage data files
+- add a tool to take the local data and generate summaries:
+  - per-day CSV of net used, total used, total produced, etc.
+  - daily averages over some time interval
+  - upload to a Google Drive doc?
