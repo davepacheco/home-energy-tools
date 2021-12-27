@@ -27,3 +27,5 @@ All of this uses configuration from "enphase_creds.toml" (not checked into git) 
   - per-day CSV of net used, total used, total produced, etc.
   - daily averages over some time interval
   - upload to a Google Drive doc?
+
+See https://docs.google.com/document/d/1I-v5NQB5-9pbJ7KQikWT1h4a24o5cJ_66e65-VUfieQ/edit#[my notes on this data] and https://docs.google.com/spreadsheets/d/1w17I6_N8jf48YQ1wO435F5XycTSAnDh-1_-fGxDyY-Y/edit#gid=473720440[my spreadsheet from 2021-12-26 summarizing the data so far].
