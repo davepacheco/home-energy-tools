@@ -7,6 +7,8 @@ use openapi::{
     self,
     apis::configuration::{ApiKey, Configuration},
 };
+use solar_data::common::EnergyProduced;
+use solar_data::common::WattHours;
 use std::time::Duration;
 
 /// Describes the config for this tool
@@ -15,14 +17,6 @@ struct Config {
     enlighten_key: String,
     enlighten_user_id: String,
     start_date: chrono::NaiveDate,
-}
-
-/// Represents an output record
-#[derive(serde::Serialize)]
-struct OutputRecord {
-    datetime_utc: chrono::DateTime<chrono::Utc>,
-    datetime_local: chrono::DateTime<chrono::Local>,
-    energy_wh: i32,
 }
 
 #[tokio::main]
@@ -105,11 +99,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap(); // XXX
             let date_start_local =
                 data_start_time.with_timezone(&chrono::Local);
+            let energy_wh = WattHours::try_from(data.enwh)?;
             writer
-                .serialize(OutputRecord {
+                .serialize(EnergyProduced {
                     datetime_utc: data_start_time,
                     datetime_local: date_start_local,
-                    energy_wh: data.enwh,
+                    energy_wh,
                 })
                 .context("writing record")?;
         }

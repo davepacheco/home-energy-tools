@@ -1,5 +1,6 @@
 //! Data structures agnostic to the data source
 
+use anyhow::Context;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -45,4 +46,24 @@ impl WattHours {
     pub fn from_kwh(kwh: f64) -> WattHours {
         WattHours((kwh * 1000f64).round() as u64)
     }
+}
+
+impl TryFrom<i32> for WattHours {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Ok(WattHours(
+            u64::try_from(value).with_context(|| {
+                format!("converting {:?} to WattHours", value)
+            })?,
+        ))
+    }
+}
+
+/// Represents energy produced in a calendar hour
+#[derive(Deserialize, Serialize)]
+pub struct EnergyProduced {
+    pub datetime_utc: chrono::DateTime<chrono::Utc>,
+    pub datetime_local: chrono::DateTime<chrono::Local>,
+    pub energy_wh: WattHours,
 }
