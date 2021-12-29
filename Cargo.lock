@@ -911,6 +911,7 @@ name = "solar-data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "atty",
  "chrono",
  "csv",
  "lazy_static",

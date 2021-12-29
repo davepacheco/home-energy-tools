@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+atty = "0.2"
 chrono = { version = "0.4", features = [ "serde" ] }
 csv = "1.1"
 lazy_static = "1.4"
