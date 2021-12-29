@@ -4,10 +4,71 @@ use crate::common::NetEnergyUsed;
 use crate::common::WattHours;
 use anyhow::anyhow;
 use anyhow::bail;
+use anyhow::Context;
 use chrono::TimeZone;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde::Deserializer;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Read;
+
+/// Reads [`PgeElectricityRecord`]s from a PG&E electricity usage file
+// NOTE: It might seem unnecessarily bureaucratic to separate the Reader from
+// the Iterator returned by `records()`.  But in the future we may want to
+// provide access to the metadata at the top of these files, in which case it
+// will be handy to have a separate object for talking about the file itself.
+pub struct ElectricityUsageReader<R> {
+    csv_reader: csv::Reader<BufReader<R>>,
+}
+
+impl<R: Read> ElectricityUsageReader<R> {
+    pub fn new(input: R) -> Result<ElectricityUsageReader<R>, anyhow::Error> {
+        let mut line_reader = BufReader::new(input);
+        let mut buf = String::new(); // TODO-robustness it'd be nice to cap this
+        const NSKIP: usize = 5;
+        // TODO could save (or at least validate) these lines
+        for i in 0..NSKIP {
+            line_reader
+                .read_line(&mut buf)
+                .with_context(|| format!("read line {}", i + 1))?;
+            buf = String::new();
+        }
+
+        Ok(ElectricityUsageReader {
+            csv_reader: csv::ReaderBuilder::new().from_reader(line_reader),
+        })
+    }
+
+    pub fn records(&mut self) -> ElectricityUsageIterator<'_, R> {
+        ElectricityUsageIterator::new(&mut self.csv_reader)
+    }
+}
+
+/// Iterates the [`PgeElectrictyRecord`]s in a PG&E electricity usage file
+pub struct ElectricityUsageIterator<'a, R> {
+    source: csv::DeserializeRecordsIter<'a, BufReader<R>, PgeElectricityRecord>,
+}
+
+impl<'a, R: Read> ElectricityUsageIterator<'a, R> {
+    fn new(
+        input: &'a mut csv::Reader<BufReader<R>>,
+    ) -> ElectricityUsageIterator<'a, R> {
+        ElectricityUsageIterator { source: input.deserialize() }
+    }
+}
+
+impl<'a, R: Read> Iterator for ElectricityUsageIterator<'a, R> {
+    type Item = Result<NetEnergyUsed, anyhow::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source.next().map(|result| {
+            result
+                .context("reading record from PG&E electricity file")
+                .and_then(NetEnergyUsed::try_from)
+        })
+    }
+}
 
 /// A record from a PG&E electricity usage data file
 #[derive(Debug, Deserialize)]

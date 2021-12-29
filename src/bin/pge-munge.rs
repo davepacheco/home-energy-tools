@@ -1,10 +1,8 @@
 //! Process PG&E usage data into CSV files more suitable for my purposes
 
 use anyhow::Context;
-use solar_data::common::NetEnergyUsed;
-use solar_data::pge::PgeElectricityRecord;
+use solar_data::pge::ElectricityUsageReader;
 use std::fs::File;
-use std::io::BufRead;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -25,24 +23,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn munge_file(args: &Args) -> Result<(), anyhow::Error> {
     let file = File::open(&args.input)
         .with_context(|| format!("open {:?}", args.input.display()))?;
-    let mut line_reader = std::io::BufReader::new(file);
-    let mut buf = String::new(); // TODO-robustness it'd be nice to cap this
-    const NSKIP: usize = 5;
-    // TODO could validate these lines
-    for i in 0..NSKIP {
-        line_reader
-            .read_line(&mut buf)
-            .with_context(|| format!("read line {}", i + 1))?;
-        buf = String::new();
-    }
-    let mut csv_reader = csv::ReaderBuilder::new().from_reader(line_reader);
+    let mut reader = ElectricityUsageReader::new(file)
+        .with_context(|| format!("setup {:?}", args.input.display()))?;
     let mut csv_writer = csv::Writer::from_writer(std::io::stdout());
-    for (i, result) in csv_reader.deserialize().enumerate() {
-        let input_record: PgeElectricityRecord =
-            result.with_context(|| format!("read record {}", i + 1))?;
-        let output_record = NetEnergyUsed::try_from(input_record)?;
-        csv_writer.serialize(&output_record).context("write output")?;
+    for record in reader.records() {
+        csv_writer
+            .serialize(&record.context("read record")?)
+            .context("write output")?;
     }
-
     csv_writer.flush().context("flush output")
 }
