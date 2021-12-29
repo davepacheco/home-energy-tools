@@ -1,5 +1,8 @@
 //! Data structures agnostic to the data source
 
+use std::io::Read;
+use std::ops::AddAssign;
+
 use anyhow::Context;
 use chrono::DateTime;
 use chrono::Utc;
@@ -60,10 +63,53 @@ impl TryFrom<i32> for WattHours {
     }
 }
 
+impl AddAssign for WattHours {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
 /// Represents energy produced in a calendar hour
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct EnergyProduced {
     pub datetime_utc: chrono::DateTime<chrono::Utc>,
     pub datetime_local: chrono::DateTime<chrono::Local>,
     pub energy_wh: WattHours,
+}
+
+/// Reads our (custom) CSV format describing solar production
+pub struct SolarProductionReader<R> {
+    csv_reader: csv::Reader<R>,
+}
+
+impl<R: Read> SolarProductionReader<R> {
+    pub fn new(input: R) -> SolarProductionReader<R> {
+        SolarProductionReader {
+            csv_reader: csv::ReaderBuilder::new().from_reader(input),
+        }
+    }
+
+    pub fn records(&mut self) -> SolarProductionIterator<'_, R> {
+        SolarProductionIterator::new(&mut self.csv_reader)
+    }
+}
+
+pub struct SolarProductionIterator<'a, R> {
+    source: csv::DeserializeRecordsIter<'a, R, EnergyProduced>,
+}
+
+impl<'a, R: Read> SolarProductionIterator<'a, R> {
+    fn new(input: &'a mut csv::Reader<R>) -> SolarProductionIterator<'a, R> {
+        SolarProductionIterator { source: input.deserialize() }
+    }
+}
+
+impl<'a, R: Read> Iterator for SolarProductionIterator<'a, R> {
+    type Item = Result<EnergyProduced, anyhow::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source.next().map(|result| {
+            result.context("reading record from solar production file")
+        })
+    }
 }
