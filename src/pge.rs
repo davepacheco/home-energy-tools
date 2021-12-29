@@ -131,10 +131,6 @@ impl TryFrom<PgeElectricityRecord> for NetEnergyUsed {
         input_record: PgeElectricityRecord,
     ) -> Result<Self, Self::Error> {
         let start_time = input_record.date.and_time(input_record.start_time);
-        let timestamp_start_utc =
-            chrono::Utc.from_local_datetime(&start_time).single().ok_or_else(
-                || anyhow!("reading start time for record: {:?}", input_record),
-            )?;
         let end_time = input_record.date.and_time(input_record.end_time);
         let record_interval = end_time - start_time;
         if record_interval != *EXPECTED_RECORD_INTERVAL {
@@ -146,6 +142,14 @@ impl TryFrom<PgeElectricityRecord> for NetEnergyUsed {
                 input_record,
             );
         }
+
+        let timestamp_start_utc =
+            chrono::Local.from_local_datetime(&start_time)
+                .single()
+                .ok_or_else(|| {
+                    anyhow!("reading start time for record: {:?}", input_record)
+                })?
+                .with_timezone(&chrono::Utc);
         Ok(NetEnergyUsed {
             timestamp_start_utc,
             net_used_wh: WattHours::from_kwh(input_record.usage),
