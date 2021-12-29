@@ -17,11 +17,6 @@ struct Config {
     start_date: chrono::NaiveDate,
 }
 
-/// Wraps `anyhow::Error` in something implementing `std::error::Error`
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-struct AnyhowWrap(#[from] anyhow::Error);
-
 /// Represents an output record
 #[derive(serde::Serialize)]
 struct OutputRecord {
