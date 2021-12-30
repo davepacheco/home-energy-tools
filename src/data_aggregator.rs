@@ -83,7 +83,6 @@ impl DataAggregator {
         energy_produced: EnergyProduced,
     ) -> Result<(), anyhow::Error> {
         let start = &energy_produced.datetime_utc;
-        let start_time = start.time();
         let key_timestamp = start
             .with_minute(0)
             .unwrap()

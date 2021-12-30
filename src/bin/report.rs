@@ -4,6 +4,8 @@ use anyhow::bail;
 use anyhow::Context;
 use solar_data::common::SolarProductionReader;
 use solar_data::data_aggregator::{DataAggregator, Source};
+use std::fs;
+use std::path::Path;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -18,14 +20,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn report(_: &Args) -> Result<(), anyhow::Error> {
-    let file = std::io::stdin();
-    if atty::is(atty::Stream::Stdin) {
-        eprintln!("note: reading from stdin");
-    }
-    let mut solar_reader = SolarProductionReader::new(file);
     let mut aggr = DataAggregator::new();
-    aggr.load_production(Source::new("stdin"), solar_reader.records())
-        .context("loading data")?;
+    load_production_data(&mut aggr, Path::new("local-data/production"))
+        .context("loading solar data")?;
+
     let nwarnings = aggr.nwarnings;
 
     eprintln!("warnings: {}", aggr.nwarnings);
@@ -39,6 +37,31 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
             nwarnings,
             if nwarnings == 1 { "" } else { "s" }
         );
+    }
+
+    Ok(())
+}
+
+fn load_production_data(
+    aggr: &mut DataAggregator,
+    path: &Path,
+) -> Result<(), anyhow::Error> {
+    eprintln!("loading production data from {:?}", path);
+    let dirents = fs::read_dir(path)
+        .with_context(|| format!("readdir {:?}", path.display()))?;
+    for maybe_item in dirents {
+        let item = maybe_item
+            .with_context(|| format!("readdir {:?} entry", path.display()))?;
+        let filepath = item.path();
+        eprintln!("loading production data from {:?}", filepath);
+        let file = fs::File::open(&filepath)
+            .with_context(|| format!("read {:?}", filepath))?;
+        let mut solar_reader = SolarProductionReader::new(file);
+        aggr.load_production(
+            Source::new(&filepath.display().to_string()),
+            solar_reader.records(),
+        )
+        .with_context(|| format!("loading data from {:?}", filepath))?;
     }
 
     Ok(())
