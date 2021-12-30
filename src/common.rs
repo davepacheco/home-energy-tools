@@ -2,6 +2,7 @@
 
 use std::io::Read;
 use std::ops::AddAssign;
+use std::ops::SubAssign;
 
 use anyhow::Context;
 use chrono::DateTime;
@@ -41,31 +42,35 @@ pub struct NetEnergyUsed {
     pub net_used_wh: WattHours,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
-pub struct WattHours(u64);
+pub struct WattHours(i64);
 
 impl WattHours {
     pub fn from_kwh(kwh: f64) -> WattHours {
-        WattHours((kwh * 1000f64).round() as u64)
+        WattHours((kwh * 1000f64).round() as i64)
+    }
+
+    pub fn as_kwh(&self) -> f64 {
+        (self.0 as f64) / 1000f64
     }
 }
 
-impl TryFrom<i32> for WattHours {
-    type Error = anyhow::Error;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Ok(WattHours(
-            u64::try_from(value).with_context(|| {
-                format!("converting {:?} to WattHours", value)
-            })?,
-        ))
+impl From<i32> for WattHours {
+    fn from(value: i32) -> Self {
+        WattHours(i64::from(value))
     }
 }
 
 impl AddAssign for WattHours {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for WattHours {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 

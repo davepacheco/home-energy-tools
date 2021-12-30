@@ -37,6 +37,19 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
     eprintln!("net usage  records: {}", aggr.nusagerecords);
     eprintln!("net usage  records combined: {}", aggr.nusagedupsok);
 
+    eprintln!("");
+    eprintln!("REPORT BY MONTH");
+    eprintln!("PROD   NET    USED   WHEN");
+    for datum in aggr.months() {
+        eprintln!(
+            "{:6.1} {:6.1} {:6.1} {}",
+            datum.produced.as_kwh(),
+            datum.net_used.as_kwh(),
+            datum.consumed.as_kwh(),
+            datum.interval_start.date()
+        );
+    }
+
     if nwarnings > 0 {
         bail!(
             "bailing after {} warning{}",
