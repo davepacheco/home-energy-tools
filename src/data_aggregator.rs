@@ -150,8 +150,20 @@ impl DataLoader {
         Ok(ndupsok)
     }
 
+    pub fn years(&self) -> DataIterator<'_> {
+        DataIterator::new(&self, hour_bucket_local_year)
+    }
+
     pub fn months(&self) -> DataIterator<'_> {
         DataIterator::new(&self, hour_bucket_local_month)
+    }
+
+    pub fn days(&self) -> DataIterator<'_> {
+        DataIterator::new(&self, hour_bucket_local_day)
+    }
+
+    pub fn hours(&self) -> DataIterator<'_> {
+        DataIterator::new(&self, hour_bucket_utc_hour)
     }
 }
 
@@ -248,16 +260,48 @@ fn summarize_hourly_energy(
 }
 
 // TODO-coverage write tests
+fn hour_bucket_local_year(
+    start_utc: &chrono::DateTime<chrono::Utc>,
+) -> NaiveDateTime {
+    start_utc
+        .with_timezone(&chrono::Local)
+        .naive_local()
+        .with_day(1)
+        .unwrap()
+        .with_hour(0)
+        .unwrap()
+        .with_month(1)
+        .unwrap()
+}
+
+// TODO-coverage write tests
 fn hour_bucket_local_month(
     start_utc: &chrono::DateTime<chrono::Utc>,
 ) -> NaiveDateTime {
-    let start_local = start_utc.with_timezone(&chrono::Local);
-    let start_naive = start_local.naive_local();
-    let start_month = start_naive.with_day(1).unwrap().with_hour(0).unwrap();
-    assert_eq!(start_month.minute(), 0);
-    assert_eq!(start_month.second(), 0);
-    assert_eq!(start_month.nanosecond(), 0);
-    start_month
+    start_utc
+        .with_timezone(&chrono::Local)
+        .naive_local()
+        .with_day(1)
+        .unwrap()
+        .with_hour(0)
+        .unwrap()
+}
+
+// TODO-coverage write tests
+fn hour_bucket_local_day(
+    start_utc: &chrono::DateTime<chrono::Utc>,
+) -> NaiveDateTime {
+    start_utc.with_timezone(&chrono::Local).naive_local().with_hour(0).unwrap()
+}
+
+// TODO-coverage write tests
+fn hour_bucket_utc_hour(
+    start_utc: &chrono::DateTime<chrono::Utc>,
+) -> NaiveDateTime {
+    assert_eq!(start_utc.minute(), 0);
+    assert_eq!(start_utc.second(), 0);
+    assert_eq!(start_utc.nanosecond(), 0);
+    start_utc.naive_local()
 }
 
 impl<'a> Iterator for DataIterator<'a> {

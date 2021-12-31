@@ -38,6 +38,19 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
     eprintln!("net usage  duplicate records skipped: {}", aggr.nusagedupsok);
 
     eprintln!("");
+    eprintln!("REPORT BY YEAR");
+    eprintln!("PROD   NET    USED   WHEN");
+    for datum in aggr.years() {
+        eprintln!(
+            "{:6.1} {:6.1} {:6.1} {}",
+            datum.produced.as_kwh(),
+            datum.net_used.as_kwh(),
+            datum.consumed.as_kwh(),
+            datum.interval_start.date()
+        );
+    }
+
+    eprintln!("");
     eprintln!("REPORT BY MONTH");
     eprintln!("PROD   NET    USED   WHEN");
     for datum in aggr.months() {
