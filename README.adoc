@@ -9,9 +9,9 @@ This repo contains a few tools to track and analyze solar panel production data 
 Collect the latest Enphase data using:
 
 [source,text]
----
+----
 cargo run --bin=fetch-from-enphase > data.csv
----
+----
 
 This fetches data from the Enphase Enlighten API.  We're doing this with a client generated using the OpenAPI-Generator from src/enlighten.yaml, itself an https://github.com/NathanBaulch/EnphaseOpenAPI/[unofficial OpenAPI spec for the Enlighten API].
 
@@ -21,11 +21,10 @@ All of this uses configuration from "enphase_creds.toml" (not checked into git) 
 
 == TODO
 
-- document what I've got and how to run it
-- "report" tool
-  - could do better validation (see TODOs)
-  - could upload to a Google Drive doc
-- "fetch-from-enphase" tool could fetch only what's missing (or at least take a
-  start-date argument)
+* document what I've got and how to run it
+* "report" tool
+** could do better validation (see TODOs)
+** could upload to a Google Drive doc
+* "fetch-from-enphase" tool could fetch only what's missing (or at least take a start-date argument)
 
 See https://docs.google.com/document/d/1I-v5NQB5-9pbJ7KQikWT1h4a24o5cJ_66e65-VUfieQ/edit#[my notes on this data] and https://docs.google.com/spreadsheets/d/1w17I6_N8jf48YQ1wO435F5XycTSAnDh-1_-fGxDyY-Y/edit#gid=473720440[my spreadsheet from 2021-12-26 summarizing the data so far].
