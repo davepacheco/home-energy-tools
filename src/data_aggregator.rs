@@ -115,11 +115,10 @@ impl DataLoader {
         // sorted order, instead of walking one and doing lookups in the other.
         let mut ndupsok = 0;
         for (hour, energy_wh) in source_map.into_iter() {
-            let hourly =
-                self.hourly_data.entry(hour).or_insert(HourlyData {
-                    production: None,
-                    net_usage: None,
-                });
+            let hourly = self
+                .hourly_data
+                .entry(hour)
+                .or_insert(HourlyData { production: None, net_usage: None });
 
             let datum = which(hourly);
             if let Some((ref other_source, other_energy_wh)) = datum {
@@ -151,8 +150,8 @@ impl DataLoader {
         Ok(ndupsok)
     }
 
-    pub fn months(&self) -> MonthIterator<'_> {
-        MonthIterator::new(&self)
+    pub fn months(&self) -> DataIterator<'_> {
+        DataIterator::new(&self, hour_bucket_local_month)
     }
 }
 
@@ -211,7 +210,7 @@ pub struct IntervalEnergy {
     pub consumed: WattHours,
 }
 
-pub struct MonthIterator<'a> {
+pub struct DataIterator<'a> {
     iter: Peekable<
         std::collections::btree_map::Iter<
             'a,
@@ -219,11 +218,15 @@ pub struct MonthIterator<'a> {
             HourlyData,
         >,
     >,
+    bucket_time: fn(&chrono::DateTime<chrono::Utc>) -> NaiveDateTime,
 }
 
-impl<'a> MonthIterator<'a> {
-    fn new(aggr: &'a DataLoader) -> MonthIterator<'a> {
-        MonthIterator { iter: aggr.hourly_data.iter().peekable() }
+impl<'a> DataIterator<'a> {
+    fn new(
+        aggr: &'a DataLoader,
+        bucket_time: fn(&chrono::DateTime<chrono::Utc>) -> NaiveDateTime,
+    ) -> DataIterator<'a> {
+        DataIterator { iter: aggr.hourly_data.iter().peekable(), bucket_time }
     }
 }
 
@@ -257,7 +260,7 @@ fn hour_bucket_local_month(
     start_month
 }
 
-impl<'a> Iterator for MonthIterator<'a> {
+impl<'a> Iterator for DataIterator<'a> {
     type Item = IntervalEnergy;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -267,10 +270,10 @@ impl<'a> Iterator for MonthIterator<'a> {
         };
 
         // XXX TODO-cleanup this whole thing could be written much cleaner
-        let start_month = hour_bucket_local_month(hour_start);
+        let start_bucket = (self.bucket_time)(hour_start);
         let (produced, net_used) = summarize_hourly_energy(hourly_energy);
         let mut rv = IntervalEnergy {
-            interval_start: start_month,
+            interval_start: start_bucket,
             produced,
             net_used,
             consumed: WattHours::from(0i32),
@@ -280,13 +283,13 @@ impl<'a> Iterator for MonthIterator<'a> {
         rv.net_used += net_used;
 
         while let Some((peek_start, _)) = self.iter.peek() {
-            let peek_month = hour_bucket_local_month(*peek_start);
-            if peek_month != start_month {
+            let peek_start_bucket = (self.bucket_time)(*peek_start);
+            if peek_start_bucket != start_bucket {
                 break;
             }
 
             let (start, energy) = self.iter.next().unwrap();
-            assert_eq!(hour_bucket_local_month(start), start_month);
+            assert_eq!((self.bucket_time)(start), start_bucket);
             let (produced, net_used) = summarize_hourly_energy(energy);
             rv.produced += produced;
             rv.net_used += net_used;
