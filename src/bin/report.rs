@@ -3,9 +3,11 @@
 use anyhow::bail;
 use anyhow::Context;
 use solar_data::common::SolarProductionReader;
+use solar_data::data_aggregator::DataIterator;
 use solar_data::data_aggregator::{DataLoader, Source};
 use solar_data::pge::ElectricityUsageReader;
 use std::fs;
+use std::fs::OpenOptions;
 use std::path::Path;
 use structopt::StructOpt;
 
@@ -37,32 +39,6 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
     eprintln!("net usage  records: {}", aggr.nusagerecords);
     eprintln!("net usage  duplicate records skipped: {}", aggr.nusagedupsok);
 
-    eprintln!("");
-    eprintln!("REPORT BY YEAR");
-    eprintln!("PROD   NET    USED   WHEN");
-    for datum in aggr.years() {
-        eprintln!(
-            "{:6.1} {:6.1} {:6.1} {}",
-            datum.produced.as_kwh(),
-            datum.net_used.as_kwh(),
-            datum.consumed.as_kwh(),
-            datum.interval_start.date()
-        );
-    }
-
-    eprintln!("");
-    eprintln!("REPORT BY MONTH");
-    eprintln!("PROD   NET    USED   WHEN");
-    for datum in aggr.months() {
-        eprintln!(
-            "{:6.1} {:6.1} {:6.1} {}",
-            datum.produced.as_kwh(),
-            datum.net_used.as_kwh(),
-            datum.consumed.as_kwh(),
-            datum.interval_start.date()
-        );
-    }
-
     if nwarnings > 0 {
         bail!(
             "bailing after {} warning{}",
@@ -71,6 +47,38 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
         );
     }
 
+    let output_dir = Path::new("generated-reports");
+    fs::create_dir(output_dir)
+        .with_context(|| format!("mkdir {:?}", output_dir.display()))?;
+    make_report(output_dir, "yearly", aggr.years())
+        .context("creating yearly report")?;
+    make_report(output_dir, "monthly", aggr.months())
+        .context("creating monthly report")?;
+    make_report(output_dir, "daily", aggr.days())
+        .context("creating daily report")?;
+    make_report(output_dir, "hourly", aggr.hours())
+        .context("creating hourly report")?;
+    Ok(())
+}
+
+fn make_report(
+    parent_dir: &Path,
+    label: &str,
+    iter: DataIterator<'_>,
+) -> Result<(), anyhow::Error> {
+    eprint!("creating {} report ... ", label);
+    let filename = parent_dir.join(format!("{}.csv", label));
+    let file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&filename)
+        .with_context(|| format!("create {:?}", filename.display()))?;
+    let mut writer = csv::Writer::from_writer(file);
+    for record in iter {
+        writer.serialize(record).context("write record")?;
+    }
+    writer.flush().context("flush")?;
+    eprintln!("done.");
     Ok(())
 }
 

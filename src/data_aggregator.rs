@@ -215,6 +215,7 @@ where
     (source_map, nrecords, nwarnings)
 }
 
+#[derive(serde::Serialize)]
 pub struct IntervalEnergy {
     pub interval_start: chrono::NaiveDateTime,
     pub produced: WattHours,
