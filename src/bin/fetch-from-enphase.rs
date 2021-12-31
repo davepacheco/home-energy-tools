@@ -7,8 +7,8 @@ use openapi::{
     self,
     apis::configuration::{ApiKey, Configuration},
 };
-use solar_data::common::EnergyProduced;
-use solar_data::common::WattHours;
+use home_energy_tools::common::EnergyProduced;
+use home_energy_tools::common::WattHours;
 use std::time::Duration;
 
 /// Describes the config for this tool

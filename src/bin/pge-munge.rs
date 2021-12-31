@@ -1,7 +1,7 @@
 //! Process PG&E usage data into CSV files more suitable for my purposes
 
 use anyhow::Context;
-use solar_data::pge::ElectricityUsageReader;
+use home_energy_tools::pge::ElectricityUsageReader;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

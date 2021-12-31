@@ -2,7 +2,7 @@
 :toc: left
 :icons: font
 
-= solar-data
+= Home energy tools
 
 This repo contains a few tools to track and analyze solar panel production data from Enphase and energy usage data from PG&E.
 

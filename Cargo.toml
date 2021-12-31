@@ -1,5 +1,5 @@
 [package]
-name = "solar-data"
+name = "home-energy-tools"
 version = "0.1.0"
 edition = "2021"
 

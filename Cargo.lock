@@ -283,6 +283,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "home-energy-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "atty",
+ "chrono",
+ "csv",
+ "lazy_static",
+ "openapi",
+ "reqwest",
+ "serde",
+ "structopt",
+ "thiserror",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "http"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -904,24 +922,6 @@ checksum = "5dc90fe6c7be1a323296982db1836d1ea9e47b6839496dde9a541bc496df3516"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "solar-data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "atty",
- "chrono",
- "csv",
- "lazy_static",
- "openapi",
- "reqwest",
- "serde",
- "structopt",
- "thiserror",
- "tokio",
- "toml",
 ]
 
 [[package]]
