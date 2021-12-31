@@ -3,7 +3,7 @@
 use anyhow::bail;
 use anyhow::Context;
 use solar_data::common::SolarProductionReader;
-use solar_data::data_aggregator::{DataAggregator, Source};
+use solar_data::data_aggregator::{DataLoader, Source};
 use solar_data::pge::ElectricityUsageReader;
 use std::fs;
 use std::path::Path;
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn report(_: &Args) -> Result<(), anyhow::Error> {
-    let mut aggr = DataAggregator::new();
+    let mut aggr = DataLoader::new();
     load_production_data(&mut aggr, Path::new("local-data/production"))
         .context("loading solar data")?;
     load_pge_data(&mut aggr, Path::new("local-data/pge"))
@@ -62,7 +62,7 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
 }
 
 fn load_production_data(
-    aggr: &mut DataAggregator,
+    aggr: &mut DataLoader,
     path: &Path,
 ) -> Result<(), anyhow::Error> {
     eprintln!("loading production data from {:?}", path);
@@ -88,7 +88,7 @@ fn load_production_data(
 
 // TODO-cleanup commonize with load_production_data
 fn load_pge_data(
-    aggr: &mut DataAggregator,
+    aggr: &mut DataLoader,
     path: &Path,
 ) -> Result<(), anyhow::Error> {
     eprintln!("loading PG&E data from {:?}", path);
