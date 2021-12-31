@@ -21,11 +21,11 @@ All of this uses configuration from "enphase_creds.toml" (not checked into git) 
 
 == TODO
 
-- add a tool to take the Enphase CSV and turn it into local time
-- add some tools to process the PG&E usage data files
-- add a tool to take the local data and generate summaries:
-  - per-day CSV of net used, total used, total produced, etc.
-  - daily averages over some time interval
-  - upload to a Google Drive doc?
+- document what I've got and how to run it
+- "report" tool
+  - could do better validation (see TODOs)
+  - could upload to a Google Drive doc
+- "fetch-from-enphase" tool could fetch only what's missing (or at least take a
+  start-date argument)
 
 See https://docs.google.com/document/d/1I-v5NQB5-9pbJ7KQikWT1h4a24o5cJ_66e65-VUfieQ/edit#[my notes on this data] and https://docs.google.com/spreadsheets/d/1w17I6_N8jf48YQ1wO435F5XycTSAnDh-1_-fGxDyY-Y/edit#gid=473720440[my spreadsheet from 2021-12-26 summarizing the data so far].
