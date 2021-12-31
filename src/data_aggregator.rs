@@ -1,6 +1,7 @@
 //! Data structure for storing net usage and production data
 // TODO There's probably a crate well-suited for this.
 
+use crate::common::Energy;
 use crate::common::EnergyProduced;
 use crate::common::NetEnergyUsed;
 use crate::common::WattHours;
@@ -69,50 +70,28 @@ impl DataLoader {
         I: Iterator<Item = Result<EnergyProduced, anyhow::Error>>,
     {
         self.nprodsources += 1;
-        let mut source_map = BTreeMap::new();
-        for record in iter {
-            match record {
-                Ok(r) => {
-                    self.load_production_record(&mut source_map, r);
-                }
-                Err(error) => {
-                    eprintln!("warn: {:#}", error);
-                    self.nwarnings += 1;
-                }
-            }
-        }
-
+        let (source_map, nrecords, nwarnings) =
+            load_records(iter.map(|r| r.map(Energy::from)));
+        self.nprodrecords += nrecords;
+        self.nwarnings += nwarnings;
         self.merge_production(source, source_map)
     }
 
-    fn load_production_record(
+    // TODO-cleanup commonize with load_production
+    pub fn load_net_usage<I>(
         &mut self,
-        source_map: &mut BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>,
-        energy_produced: EnergyProduced,
-    ) {
-        let start = &energy_produced.datetime_utc;
-        let key_timestamp = start
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
-        // TODO-optimization In almost all cases, there will only ever be one
-        // record in the input for a given hour, and it comes in sorted.  (The
-        // only time we currently see a dup here is for the one hour per year
-        // when DST goes backwards.)  So we don't really need to build a whole
-        // map and then merge it into the canonical one.  We could merge entries
-        // one-by-one into the canonical one.  This approach ensures that we (1)
-        // correctly record the extra DST-backwards record, (2) correctly ignore
-        // totally duplicate data (e.g., when someone has provided CSVs with
-        // overlapping dates with the same data), and (3) correctly identify
-        // overlapping, non-identical data.
-        let hourly = source_map
-            .entry(key_timestamp)
-            .or_insert_with(|| WattHours::from(0));
-        *hourly += energy_produced.energy_wh;
-        self.nprodrecords += 1;
+        source: Source,
+        iter: I,
+    ) -> Result<(), anyhow::Error>
+    where
+        I: Iterator<Item = Result<NetEnergyUsed, anyhow::Error>>,
+    {
+        self.nusagesources += 1;
+        let (source_map, nrecords, nwarnings) =
+            load_records(iter.map(|r| r.map(Energy::from)));
+        self.nusagerecords += nrecords;
+        self.nwarnings += nwarnings;
+        self.merge_net_usage(source, source_map)
     }
 
     fn merge_production(
@@ -162,54 +141,6 @@ impl DataLoader {
             }
         }
         Ok(())
-    }
-
-    // TODO-cleanup commonize with load_production
-    pub fn load_net_usage<I>(
-        &mut self,
-        source: Source,
-        iter: I,
-    ) -> Result<(), anyhow::Error>
-    where
-        I: Iterator<Item = Result<NetEnergyUsed, anyhow::Error>>,
-    {
-        let mut source_map = BTreeMap::new();
-        self.nusagesources += 1;
-        for record in iter {
-            match record {
-                Ok(r) => {
-                    self.load_net_usage_record(&mut source_map, r);
-                }
-                Err(error) => {
-                    eprintln!("warn: {:#}", error);
-                    self.nwarnings += 1;
-                }
-            }
-        }
-
-        self.merge_net_usage(source, source_map)
-    }
-
-    // TODO-cleanup commonize with load_production_record
-    fn load_net_usage_record(
-        &mut self,
-        source_map: &mut BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>,
-        energy_used: NetEnergyUsed,
-    ) {
-        let start = &energy_used.timestamp_start_utc;
-        let key_timestamp = start
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
-        // TODO See comment in load_production_record().
-        let hourly = source_map
-            .entry(key_timestamp)
-            .or_insert_with(|| WattHours::from(0));
-        *hourly += energy_used.net_used_wh;
-        self.nusagerecords += 1;
     }
 
     // TODO-cleanup commonize with merge_production
@@ -266,6 +197,53 @@ impl DataLoader {
     pub fn months(&self) -> MonthIterator<'_> {
         MonthIterator::new(&self)
     }
+}
+
+pub fn load_records<I>(
+    iter: I,
+) -> (BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>, usize, usize)
+where
+    I: Iterator<Item = Result<Energy, anyhow::Error>>,
+{
+    let mut source_map = BTreeMap::new();
+    let mut nrecords = 0;
+    let mut nwarnings = 0;
+    for record in iter {
+        match record {
+            Ok(r) => {
+                let start = &r.datetime;
+                let key_timestamp = start
+                    .with_minute(0)
+                    .unwrap()
+                    .with_second(0)
+                    .unwrap()
+                    .with_nanosecond(0)
+                    .unwrap();
+                // TODO-optimization In almost all cases, there will only ever
+                // be one record in the input for a given hour, and it comes in
+                // sorted.  (The only time we currently see a dup here is for
+                // the one hour per year when DST goes backwards.)  So we don't
+                // really need to build a whole map and then merge it into the
+                // canonical one.  We could merge entries one-by-one into the
+                // canonical one.  This approach ensures that we (1) correctly
+                // record the extra DST-backwards record, (2) correctly ignore
+                // totally duplicate data (e.g., when someone has provided CSVs
+                // with overlapping dates with the same data), and (3) correctly
+                // identify overlapping, non-identical data.
+                let hourly = source_map
+                    .entry(key_timestamp)
+                    .or_insert_with(|| WattHours::from(0));
+                *hourly += r.energy_wh;
+                nrecords += 1;
+            }
+            Err(error) => {
+                eprintln!("warn: {:#}", error);
+                nwarnings += 1;
+            }
+        }
+    }
+
+    (source_map, nrecords, nwarnings)
 }
 
 pub struct IntervalEnergy {

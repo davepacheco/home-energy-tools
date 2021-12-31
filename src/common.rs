@@ -82,6 +82,29 @@ pub struct EnergyProduced {
     pub energy_wh: WattHours,
 }
 
+/// Represents an amount of energy over a given time period
+///
+/// Similar to [`EnergyProduced`] or [`NetEnergyUsed`], but agnostic to the
+/// source.
+// TODO-cleanup Should these be combined?
+#[derive(Debug)]
+pub struct Energy {
+    pub datetime: chrono::DateTime<chrono::Utc>,
+    pub energy_wh: WattHours,
+}
+
+impl From<EnergyProduced> for Energy {
+    fn from(e: EnergyProduced) -> Self {
+        Energy { datetime: e.datetime_utc, energy_wh: e.energy_wh }
+    }
+}
+
+impl From<NetEnergyUsed> for Energy {
+    fn from(u: NetEnergyUsed) -> Self {
+        Energy { datetime: u.timestamp_start_utc, energy_wh: u.net_used_wh }
+    }
+}
+
 /// Reads our (custom) CSV format describing solar production
 pub struct SolarProductionReader<R> {
     csv_reader: csv::Reader<R>,
