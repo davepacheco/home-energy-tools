@@ -32,10 +32,10 @@ fn report(_: &Args) -> Result<(), anyhow::Error> {
     eprintln!("warnings: {}", aggr.nwarnings);
     eprintln!("production sources: {}", aggr.nprodsources);
     eprintln!("production records: {}", aggr.nprodrecords);
-    eprintln!("production records combined: {}", aggr.nproddupsok);
+    eprintln!("production duplicate records skipped: {}", aggr.nproddupsok);
     eprintln!("net usage  sources: {}", aggr.nusagesources);
     eprintln!("net usage  records: {}", aggr.nusagerecords);
-    eprintln!("net usage  records combined: {}", aggr.nusagedupsok);
+    eprintln!("net usage  duplicate records skipped: {}", aggr.nusagedupsok);
 
     eprintln!("");
     eprintln!("REPORT BY MONTH");

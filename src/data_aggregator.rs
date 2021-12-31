@@ -74,7 +74,11 @@ impl DataLoader {
             load_records(iter.map(|r| r.map(Energy::from)));
         self.nprodrecords += nrecords;
         self.nwarnings += nwarnings;
-        self.merge_production(source, source_map)
+        let ndupsok = self.merge_source(source, source_map, |hourly| {
+            &mut hourly.production
+        })?;
+        self.nproddupsok += ndupsok;
+        Ok(())
     }
 
     // TODO-cleanup commonize with load_production
@@ -91,107 +95,60 @@ impl DataLoader {
             load_records(iter.map(|r| r.map(Energy::from)));
         self.nusagerecords += nrecords;
         self.nwarnings += nwarnings;
-        self.merge_net_usage(source, source_map)
-    }
-
-    fn merge_production(
-        &mut self,
-        source: Source,
-        source_map: BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>,
-    ) -> Result<(), anyhow::Error> {
-        let source = Rc::new(source);
-        // TODO-optimization it might be slightly faster to walk both trees in
-        // sorted order, instead of walking one and doing lookups in the other.
-        for (hour, nproduced) in source_map.into_iter() {
-            if let Some(hourly) = self.hourly_data.get_mut(&hour) {
-                if let Some((ref other_source, ref other_nproduced)) =
-                    hourly.production
-                {
-                    if *other_nproduced == nproduced {
-                        // The user provided overlapping data that matches
-                        // exactly.  No problem -- ignore the new data point.
-                        self.nproddupsok += 1;
-                        continue;
-                    }
-
-                    // The user provided overlapping data that does not match.
-                    // This is almost certainly a mistake and we don't want to
-                    // just add it in and produced garbage data.
-                    bail!(
-                        "found different data from two different sources for \
-                        the same time period (hour = {}, source {:?} reports \
-                        {:?} Wh, source {:?} reports {:?} Wh)",
-                        hour,
-                        other_source,
-                        other_nproduced,
-                        source,
-                        nproduced
-                    );
-                } else {
-                    hourly.production = Some((source.clone(), nproduced));
-                }
-            } else {
-                self.hourly_data.insert(
-                    hour,
-                    HourlyData {
-                        production: Some((source.clone(), nproduced)),
-                        net_usage: None,
-                    },
-                );
-            }
-        }
+        let ndupsok = self
+            .merge_source(source, source_map, |hourly| &mut hourly.net_usage)?;
+        self.nusagedupsok += ndupsok;
         Ok(())
     }
 
-    // TODO-cleanup commonize with merge_production
-    fn merge_net_usage(
+    fn merge_source<F>(
         &mut self,
         source: Source,
         source_map: BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>,
-    ) -> Result<(), anyhow::Error> {
+        which: F,
+    ) -> Result<usize, anyhow::Error>
+    where
+        F: Fn(&mut HourlyData) -> &mut Option<(Rc<Source>, WattHours)>,
+    {
         let source = Rc::new(source);
         // TODO-optimization it might be slightly faster to walk both trees in
         // sorted order, instead of walking one and doing lookups in the other.
-        for (hour, nnet_used) in source_map.into_iter() {
-            if let Some(hourly) = self.hourly_data.get_mut(&hour) {
-                if let Some((ref other_source, other_nnet_used)) =
-                    hourly.net_usage
-                {
-                    if other_nnet_used == nnet_used {
-                        // The user provided overlapping data that matches
-                        // exactly.  No problem -- ignore the new data point.
-                        self.nusagedupsok += 1;
-                        continue;
-                    }
+        let mut ndupsok = 0;
+        for (hour, energy_wh) in source_map.into_iter() {
+            let hourly =
+                self.hourly_data.entry(hour).or_insert(HourlyData {
+                    production: None,
+                    net_usage: None,
+                });
 
-                    // The user provided overlapping data that does not match.
-                    // This is almost certainly a mistake and we don't want to
-                    // just add it in and produced garbage data.
-                    bail!(
-                        "found different data from two different sources for \
+            let datum = which(hourly);
+            if let Some((ref other_source, other_energy_wh)) = datum {
+                if *other_energy_wh == energy_wh {
+                    // The user provided overlapping data that matches
+                    // exactly.  No problem -- ignore the new data point.
+                    ndupsok += 1;
+                    continue;
+                }
+
+                // The user provided overlapping data that does not match.
+                // This is almost certainly a mistake and we don't want to
+                // just add it in and produced garbage data.
+                bail!(
+                    "found different data from two different sources for \
                         the same time period (hour = {}, source {:?} reports \
                         {:?} Wh, source {:?} reports {:?} Wh)",
-                        hour,
-                        other_source,
-                        other_nnet_used,
-                        source,
-                        nnet_used
-                    );
-                } else {
-                    hourly.net_usage = Some((source.clone(), nnet_used));
-                }
-            } else {
-                self.hourly_data.insert(
                     hour,
-                    HourlyData {
-                        net_usage: Some((source.clone(), nnet_used)),
-                        production: None,
-                    },
+                    other_source,
+                    other_energy_wh,
+                    source,
+                    energy_wh
                 );
+            } else {
+                *datum = Some((source.clone(), energy_wh));
             }
         }
 
-        Ok(())
+        Ok(ndupsok)
     }
 
     pub fn months(&self) -> MonthIterator<'_> {
@@ -199,6 +156,7 @@ impl DataLoader {
     }
 }
 
+// TODO-cleanup use a struct here
 pub fn load_records<I>(
     iter: I,
 ) -> (BTreeMap<chrono::DateTime<chrono::Utc>, WattHours>, usize, usize)
