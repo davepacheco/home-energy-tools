@@ -1,30 +1,49 @@
 //! Basic tool for fetching data about solar energy system from Enlighten API
 
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use chrono::TimeZone;
+use home_energy_tools::common::EnergyProduced;
+use home_energy_tools::common::WattHours;
 use openapi::{
     self,
     apis::configuration::{ApiKey, Configuration},
 };
-use home_energy_tools::common::EnergyProduced;
-use home_energy_tools::common::WattHours;
+use std::path::PathBuf;
 use std::time::Duration;
+use structopt::StructOpt;
 
 /// Describes the config for this tool
 #[derive(serde::Deserialize)]
 struct Config {
     enlighten_key: String,
     enlighten_user_id: String,
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "fetch-from-enphase")]
+#[structopt(no_version)]
+#[structopt(about = "fetch solar production data from Enlighten API")]
+struct Args {
+    #[structopt(default_value = "enphase_creds.toml", long)]
+    creds_file: PathBuf,
+    #[structopt(default_value = "2021-11-06", long)]
     start_date: chrono::NaiveDate,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO config should be runtime
-    let config: Config =
-        toml::from_str(include_str!("../../enphase_creds.toml"))
-            .context("parsing enphase_creds.toml")?;
+    let args = Args::from_args();
+    Ok(fetch_data(&args).await?)
+}
+
+async fn fetch_data(args: &Args) -> Result<(), anyhow::Error> {
+    let config: Config = toml::from_str(
+        &std::fs::read_to_string(&args.creds_file).with_context(|| {
+            format!("open creds file {:?}", args.creds_file.display())
+        })?,
+    )
+    .with_context(|| format!("parsing creds file {:?}", args.creds_file))?;
 
     let enlighten_config = Configuration {
         base_path: String::from("https://api.enphaseenergy.com/api/v2"),
@@ -60,16 +79,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .context("listing systems")?;
 
     if response.systems.len() != 1 {
-        // XXX This is absurd.  But how else do we invoke the conversion?
-        // .into() didn't do it.
-        Err(anyhow!(
+        bail!(
             "expected exactly one system, but found {}",
             response.systems.len()
-        ))?;
+        );
     }
 
     let system_id = response.systems[0].system_id;
-    let mut date = config.start_date;
+    let mut date = args.start_date.clone();
     let last_date = chrono::NaiveDateTime::from_timestamp(
         chrono::Utc::now().timestamp(),
         0,
