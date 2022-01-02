@@ -10,7 +10,7 @@ Collect the latest Enphase data using:
 
 [source,text]
 ----
-cargo run --bin=fetch-from-enphase > data.csv
+cargo run --bin=enphase-fetch > data.csv
 ----
 
 This fetches data from the Enphase Enlighten API.  We're doing this with a client generated using the OpenAPI-Generator from src/enlighten.yaml, itself an https://github.com/NathanBaulch/EnphaseOpenAPI/[unofficial OpenAPI spec for the Enlighten API].

@@ -21,7 +21,7 @@ struct Config {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "fetch-from-enphase")]
+#[structopt(name = "enphase-fetch")]
 #[structopt(no_version)]
 #[structopt(about = "fetch solar production data from Enlighten API")]
 struct Args {
