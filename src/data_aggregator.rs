@@ -314,7 +314,7 @@ impl<'a> Iterator for DataIterator<'a> {
             None => return None,
         };
 
-        // XXX TODO-cleanup this whole thing could be written much cleaner
+        // TODO-cleanup this whole thing could be written much cleaner
         let start_bucket = (self.bucket_time)(hour_start);
         let (produced, net_used) = summarize_hourly_energy(hourly_energy);
         let mut rv = IntervalEnergy {

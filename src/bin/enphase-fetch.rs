@@ -109,11 +109,7 @@ async fn fetch_data(args: &Args) -> Result<(), anyhow::Error> {
         for data in stats.intervals {
             let data_end_time = chrono::Utc.timestamp(data.end_at, 0);
             let data_start_time = data_end_time
-                .checked_sub_signed(
-                    chrono::Duration::from_std(Duration::from_secs(300))
-                        .unwrap(),
-                )
-                .unwrap(); // XXX
+                - chrono::Duration::from_std(Duration::from_secs(300)).unwrap();
             let date_start_local =
                 data_start_time.with_timezone(&chrono::Local);
             let energy_wh = WattHours::try_from(data.enwh)?;
