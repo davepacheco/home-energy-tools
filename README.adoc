@@ -25,6 +25,8 @@ All of this uses configuration from "enphase_creds.toml" (not checked into git) 
 * "report" tool
 ** could do better validation (see TODOs)
 ** could upload to a Google Drive doc
-* "fetch-from-enphase" tool could fetch only what's missing (or at least take a start-date argument)
+* "enphase-fetch" tool:
+** could fetch only what's missing (or at least take a start-date argument)
+** should not try to fetch partial days (which it currently does -- if you run it at 01:08Z, it thinks it can fetch the previous calendar day, which it can, I guess, but then the reports in local time wind up missing some data.  I guess that'll be corrected on the next "report" run -- so maybe it's "report" that shouldn't attempt to generate partial days?
 
 See https://docs.google.com/document/d/1I-v5NQB5-9pbJ7KQikWT1h4a24o5cJ_66e65-VUfieQ/edit#[my notes on this data] and https://docs.google.com/spreadsheets/d/1w17I6_N8jf48YQ1wO435F5XycTSAnDh-1_-fGxDyY-Y/edit#gid=473720440[my spreadsheet from 2021-12-26 summarizing the data so far].
