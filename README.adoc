@@ -6,27 +6,124 @@
 
 This repo contains a few tools to track and analyze solar panel production data from Enphase and energy usage data from PG&E.
 
-Collect the latest Enphase data using:
+There are two tools in this repo:
 
+* `enphase-fetch`: fetches solar panel production data from the Enphase Enlighten API.  This data comes in as Watt-hours produced in 5-minute intervals.
+* `report`: combines Enphase data with PG&E data (that you download separately -- see below) to produce reports of hourly, daily, monthly, and yearly electricity produced and consumed.
+
+== Synopsis
+
+=== Prerequisites
+
+. You'll need to have an Enphase solar panel system.
+. You'll need to be a PG&E customer.
+. You'll need to have Rust installed.  As of this writing, these tools have been tested with stable Rust 1.56.
+
+=== First run
+
+. Clone this repository.
+. Set up a tree in the root of your clone for storing raw data:
++
 [source,text]
 ----
-cargo run --bin=enphase-fetch > data.csv
+$ mkdir -p local-data/pge local-data/production
 ----
+. Assuming you have an Enphase solar panel system, you can sign up for an Enphase https://developer.enphase.com/[developer account] and save your credentials.
+..  The free plan ("Watt") is more than sufficient.  (The free plan allows 10 API calls per minute.  This tool uses about 1 API call per day of data that you want to fetch.  It automatically sleeps 7 seconds between calls to avoid hitting the limit.  This is cheesy but effective.)
+.. Once you sign up, Enphase will give you a user id and key.  Keep these secret.
+.. Put these credentials in a file called `enphase_creds.toml` in the root of your clone of this repository.  It will look like this:
++
+[source,toml]
+----
+enlighten_key = "..."
+enlighten_user_id = "..."
+----
+. Fetch data from Enphase and store it locally.  The data should go into a file in `./local-data/production`.  It doesn't matter what it's called, but I usually include the start and end dates (inclusive):
++
+[source,text]
+----
+$ cargo run --bin=enphase-fetch -- --start-date 2022-01-02 > local-data/production/data-2022-01-02-2022-01-08.csv
+----
++
+An example START_DATE would be "2021-11-06".  This invocation will fetch all data from START_DATE all the way to the last complete calendar date (UTC).
+. Assuming you're a customer of PG&E, download your usage data from their web portal and put the "pge_electric_interval_data" file into `./local-data/pge`.
+.. Log into your PG&E account.  Look at your usage data.  Click the green button to download your data.  Make sure you specify a specific date range (rather than a billing period) and that you want actual usage data (not billing or cost data).
+.. This will download a ZIP file.  Unpack it.  Move (or copy) the "pge_electric_interval_data" file into `./local-data/pge`.
+. Once you've done this a few times, you'll collect a few data files.  The directory tree might look like this:
++
+[source,text]
+----
+$ find local-data -type f | sort
+local-data/pge/pge_electric_interval_data_1234567890_2018-06-01_to_2019-06-01.csv
+local-data/pge/pge_electric_interval_data_1234567890_2019-06-01_to_2020-06-01.csv
+local-data/pge/pge_electric_interval_data_1234567890_2020-06-01_to_2021-06-01.csv
+local-data/pge/pge_electric_interval_data_1234567890_2017-06-07_to_2018-05-31.csv
+local-data/pge/pge_electric_interval_data_1234567890_2021-01-01_to_2021-12-31.csv
+local-data/pge/pge_electric_interval_data_1234567890_2022-01-01_to_2022-01-07.csv
+local-data/production/data-2021-11-06-2021-12-27.csv
+local-data/production/data-2021-12-28-2022-01-01.csv
+local-data/production/data-2022-01-02-2022-01-08.csv
+----
+. Run the report generator:
++
+[source,text]
+----
+$ cargo run --bin=report
+----
++
+This tool will puts output into `generated-reports`:
++
+[source,text]
+----
+$ ls generated-reports
+total 2544
+-rw-r--r--  1 dap  staff    56049 Jan  9 13:11 daily.csv
+-rw-r--r--  1 dap  staff  1234957 Jan  9 13:11 hourly.csv
+-rw-r--r--  1 dap  staff     2072 Jan  9 13:11 monthly.csv
+-rw-r--r--  1 dap  staff      277 Jan  9 13:11 yearly.csv
+----
++
+All of the files have the same format.  Each row represents an interval (a day, an hour, a month, or a year, depending on the name of the file).  The columns are:
++
+* "interval_start": the start time of the interval (whether it's a day, an hour, etc.)
+* "produced": energy produced by the solar panels during this interval, in Watt-hours (reported by Enphase API)
+* "net_used": reported net usage during this interval, in Watt-hours (reported by PG&E)
+* "consumed": calculated energy usage during this interval, based on the "produced" and "net_used" columns
 
-This fetches data from the Enphase Enlighten API.  We're doing this with a client generated using the OpenAPI-Generator from src/enlighten.yaml, itself an https://github.com/NathanBaulch/EnphaseOpenAPI/[unofficial OpenAPI spec for the Enlighten API].
+=== Subsequent runs (updating with newer data)
 
-The data file contains a UTC timestamp (which isn't ideal, since we usually want to join this with PG&E data, which is in local time) and watt-hours produced.
+. Figure out the date of your latest Enphase data.  Run `enphase-fetch` to fetch newer data:
++
+[source,text]
+----
+$ cargo run --bin=enphase-fetch -- --start-date 2022-01-02 > local-data/production/data-2022-01-02-2022-01-08.csv
+----
++
+(You probably want to name that file according to the start date and the end date, which will be the last full calendar day (in UTC).  That said, the tools don't care what you call this.)
++
+If you're not sure what data you have and don't want to bother looking, you can have the tool refetch everything.  It'll just take a lot longer because of the 7-second pause between requests for each day's data.
+. Download newer PG&E data the same way you did above.  (Again, you'll want to check and see the last date whose data you have.)
+. Remove the `generated-reports` directory (or move it aside).
+. Rerun the `report` tool as described above.
 
-All of this uses configuration from "enphase_creds.toml" (not checked into git) which contains an Enlighten API key and user id.  Although it doesn't really make sense, there's also a "start_date" in this file.  The program will begin at the start date and fetch data up to the current date (yesterday, really).
+== Misc usage notes
+
+`enphase-fetch` pauses for 7 seconds between requests to the Enphase API to avoid hitting the limit on the free plan.  After a couple of requests up front for metadata, the tool makes one request for each (UTC) calendar day of data that's requested.  So the tool takes about 7 seconds per day of data you ask for.
+
+`enphase-fetch` fetches data from the requested start date to the last full calendar day (in UTC).  You almost certainly want to override the start date with the `--start-date` option.
+
+`report` will attempt to load all files in `local-data/pge` and `local-data/production` that end in ".csv".  It's okay if these files contain overlapping data, provided the data is identical.  For example, if you create a PG&E usage report for 2021-01-01 to 2021-02-01, and a second one for 2021-02-01 to 2021-02-28, your data will contain two copies of the data for 2021-02-01 (because it will be in both files).  Since they're exactly the same, `report` will ignore the duplicate.  If for some reason these files differ about the usage on 2021-02-01, the tool will bail out with an error.
+
+== Implementation notes
+
+The Enphase client we use is checked into this repo.  It was generated using the OpenAPI-Generator, using the file src/enlighten.yaml.  This is an https://github.com/NathanBaulch/EnphaseOpenAPI/[unofficial OpenAPI spec for the Enlighten API].
 
 == TODO
 
-* document what I've got and how to run it
 * "report" tool
 ** could do better validation (see TODOs)
 ** could upload to a Google Drive doc
+** should not try to generate reports for days with only partial data.  This can happen because `enphase-fetch` fetches and stores results in UTC, but the reports are in local time.  As a result, if you're behind UTC and in the previous calendar day, and you first fetch data, you'll wind up fetching some data for the current (local time) calendar day, but potentially not all of it.  `report` finds this data and includes it in the hourly and daily reports, but it's incomplete since you need the next UTC calendar day's data to fill it out.
 * "enphase-fetch" tool:
-** could fetch only what's missing (or at least take a start-date argument)
-** should not try to fetch partial days (which it currently does -- if you run it at 01:08Z, it thinks it can fetch the previous calendar day, which it can, I guess, but then the reports in local time wind up missing some data.  I guess that'll be corrected on the next "report" run -- so maybe it's "report" that shouldn't attempt to generate partial days?
-
-See https://docs.google.com/document/d/1I-v5NQB5-9pbJ7KQikWT1h4a24o5cJ_66e65-VUfieQ/edit#[my notes on this data] and https://docs.google.com/spreadsheets/d/1w17I6_N8jf48YQ1wO435F5XycTSAnDh-1_-fGxDyY-Y/edit#gid=473720440[my spreadsheet from 2021-12-26 summarizing the data so far].
+** start-date should probably be required
+** could fetch only what's missing
