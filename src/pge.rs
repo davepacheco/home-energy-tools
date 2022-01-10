@@ -88,7 +88,7 @@ pub struct PgeElectricityRecord {
     #[serde(rename = "UNITS")]
     units: Units,
     #[serde(rename = "COST")]
-    cost: String,
+    cost: Option<String>,
     #[serde(rename = "NOTES")]
     notes: String,
 }
