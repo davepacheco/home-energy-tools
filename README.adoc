@@ -85,7 +85,7 @@ total 2544
 +
 All of the files have the same format.  Each row represents an interval (a day, an hour, a month, or a year, depending on the name of the file).  The columns are:
 +
-* "interval_start": the start time of the interval (whether it's a day, an hour, etc.)
+* "interval_start": the start time of the interval in _local time_ (whether it's a day, an hour, etc.)
 * "produced": energy produced by the solar panels during this interval, in Watt-hours (reported by Enphase API)
 * "net_used": reported net usage during this interval, in Watt-hours (reported by PG&E)
 * "consumed": calculated energy usage during this interval, based on the "produced" and "net_used" columns
