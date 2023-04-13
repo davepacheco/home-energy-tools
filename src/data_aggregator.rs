@@ -130,9 +130,12 @@ impl DataLoader {
                 }
 
                 // The user provided overlapping data that does not match.
-                // This is almost certainly a mistake and we don't want to
-                // just add it in and produced garbage data.
-                bail!(
+                // This seems like a mistake and we don't want to just add it in
+                // and produced garbage data...but at the same time, we've seen
+                // this in real Enphase production data (results differing by
+                // 0.1% when fetched weeks later).
+                // TODO-dap record this in "nwarnings" or something
+                eprintln!(
                     "found different data from two different sources for \
                         the same time period (hour = {}, source {:?} reports \
                         {:?} Wh, source {:?} reports {:?} Wh)",
@@ -163,7 +166,7 @@ impl DataLoader {
     }
 
     pub fn hours(&self) -> DataIterator<'_> {
-        DataIterator::new(&self, hour_bucket_utc_hour)
+        DataIterator::new(&self, hour_bucket_local_hour)
     }
 }
 
@@ -296,13 +299,13 @@ fn hour_bucket_local_day(
 }
 
 // TODO-coverage write tests
-fn hour_bucket_utc_hour(
+fn hour_bucket_local_hour(
     start_utc: &chrono::DateTime<chrono::Utc>,
 ) -> NaiveDateTime {
     assert_eq!(start_utc.minute(), 0);
     assert_eq!(start_utc.second(), 0);
     assert_eq!(start_utc.nanosecond(), 0);
-    start_utc.naive_local()
+    start_utc.with_timezone(&chrono::Local).naive_local()
 }
 
 impl<'a> Iterator for DataIterator<'a> {
